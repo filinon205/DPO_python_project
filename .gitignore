@@ -1,0 +1,4 @@
+*.drawio
+.idea
+.venv
+*.bkp
