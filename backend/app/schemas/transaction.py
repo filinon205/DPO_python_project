@@ -30,5 +30,5 @@ class TransactionUpdate(BaseModel):
 class TransactionOut(TransactionBase):
     """то что отдаём пользователю (с id), наследуем из Base и добавляем id,
     его генерирует БД, поэтому при создании его нет, а при ответе он уже есть."""
-    amount: float|None
+    id: int
     model_config = ConfigDict(from_attributes=True) # Эта настройка говорит: "умей читать атрибуты объекта как поля схемы"
