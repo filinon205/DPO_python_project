@@ -10,7 +10,7 @@ class TransactionService:
     def __init__(self, db: Session)->None:
         self._db = db
 
-    def get_all(self, month: int | None = None, year: int | None = None, account_id: int | None = None) -> list[Transaction]:
+    def get_all(self, month: int | None = None, year: int | None = None, account_id: int | None = None):
         """select по month, year, account_id"""
         query = self._db.query(Transaction) # как select но еще не сделан запрос на уровень БД
         if account_id:
