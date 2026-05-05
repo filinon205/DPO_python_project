@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Семейный бюджет</title>
+  <script src="https://cdn.jsdelivr.net/npm/ag-grid-community/dist/ag-grid-community.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+    body { background: #f5f5f5; color: #222; }
+
+    .tabs { display: flex; gap: 4px; padding: 16px 24px 0; background: #fff; border-bottom: 1px solid #ddd; }
+    .tab { padding: 10px 24px; cursor: pointer; border-radius: 8px 8px 0 0; border: 1px solid transparent; color: #666; }
+    .tab.active { background: #f5f5f5; border-color: #ddd; border-bottom-color: #f5f5f5; color: #222; font-weight: 500; }
+
+    .content { padding: 24px; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .ag-theme-alpine { height: 500px; }
+
+    form { display: flex; flex-direction: column; gap: 12px; max-width: 480px; }
+    label { font-size: 14px; color: #555; }
+    input, select { padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; width: 100%; margin-top: 4px; }
+    button { padding: 10px 20px; background: #4f46e5; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    button:hover { background: #4338ca; }
+
+    .summary-cards { display: flex; gap: 16px; flex-wrap: wrap; }
+    .card { background: #fff; border-radius: 10px; padding: 20px 28px; border: 1px solid #eee; min-width: 180px; }
+    .card .label { font-size: 13px; color: #888; margin-bottom: 6px; }
+    .card .value { font-size: 24px; font-weight: 600; }
+    .income { color: #16a34a; }
+    .expense { color: #dc2626; }
+    .balance { color: #2563eb; }
+
+    .accounts-list { display: flex; flex-direction: column; gap: 10px; max-width: 480px; margin-bottom: 24px; }
+    .account-item { background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+    .account-name { font-weight: 500; }
+    .account-balance { color: #2563eb; font-weight: 600; }
+    h3 { margin-bottom: 16px; font-size: 16px; font-weight: 500; }
+
+    .choices__group .choices__heading {
+      font-size: 11px;
+      color: #999;
+      font-weight: 600;
+      text-transform: uppercase;
+      padding: 8px 12px 4px;
+      background: #f9f9f9;
+    }
+    .choices__item--choice { padding: 8px 12px; }
+  </style>
+</head>
+<body>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('transactions', this)">Транзакции</div>
+  <div class="tab" onclick="switchTab('form', this)">Добавить</div>
+  <div class="tab" onclick="switchTab('accounts', this)">Счета</div>
+  <div class="tab" onclick="switchTab('analytics', this)">Аналитика</div>
+</div>
+
+<div class="content">
+
+  <div id="tab-transactions" class="panel active">
+    <div id="myGrid" class="ag-theme-alpine"></div>
+  </div>
+
+  <div id="tab-form" class="panel">
+    <form id="transaction-form">
+      <label>Тип
+        <select name="type" id="type-select">
+          <option value="income">Доход</option>
+          <option value="expense">Расход</option>
+          <option value="transfer">Перевод</option>
+          <option value="debt">Долг</option>
+        </select>
+      </label>
+      <label>Категория
+        <select name="category_id" id="category-select">
+          <option value="">— выберите —</option>
+        </select>
+      </label>
+      <label>Счёт
+        <select name="account_id" id="account-select">
+          <option value="">— выберите —</option>
+        </select>
+      </label>
+      <label>Сумма
+        <input type="number" name="amount" placeholder="1000" required>
+      </label>
+      <label>Дата
+        <input type="date" name="date" required>
+      </label>
+      <label>Описание
+        <input type="text" name="description" placeholder="Необязательно">
+      </label>
+      <button type="submit">Сохранить</button>
+    </form>
+    <p id="form-message" style="margin-top:12px;"></p>
+  </div>
+
+  <div id="tab-accounts" class="panel">
+    <h3>Мои счета</h3>
+    <div class="accounts-list" id="accounts-list"></div>
+    <h3>Добавить счёт</h3>
+    <form id="account-form">
+      <label>Название
+        <input type="text" name="name" placeholder="Например: Основная карта" required>
+      </label>
+      <label>Начальный баланс
+        <input type="number" name="balance" placeholder="0" value="0" required>
+      </label>
+      <button type="submit">Создать счёт</button>
+    </form>
+    <p id="account-message" style="margin-top:12px;"></p>
+  </div>
+
+  <div id="tab-analytics" class="panel">
+    <div style="display:flex; gap:12px; margin-bottom:20px; align-items:flex-end;">
+      <label style="font-size:14px;">Год
+        <input type="number" id="year" value="2024" style="width:90px; padding:6px; border:1px solid #ccc; border-radius:6px; margin-left:6px;">
+      </label>
+      <label style="font-size:14px;">Месяц
+        <input type="number" id="month" value="1" min="1" max="12" style="width:70px; padding:6px; border:1px solid #ccc; border-radius:6px; margin-left:6px;">
+      </label>
+      <button onclick="loadAnalytics()">Показать</button>
+    </div>
+    <div class="summary-cards">
+      <div class="card"><div class="label">Доходы</div><div class="value income" id="val-income">—</div></div>
+      <div class="card"><div class="label">Расходы</div><div class="value expense" id="val-expense">—</div></div>
+      <div class="card"><div class="label">Баланс</div><div class="value balance" id="val-balance">—</div></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const API = 'http://localhost:8000'
+
+  function switchTab(name, clickedTab) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'))
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+    document.getElementById('tab-' + name).classList.add('active')
+    clickedTab.classList.add('active')
+  }
+
+  // Инициализируем Choices на select категории
+  const choicesCategory = new Choices('#category-select', {
+    searchEnabled: true,
+    searchPlaceholderValue: 'Поиск категории...',
+    noResultsText: 'Ничего не найдено',
+    noChoicesText: 'Нет доступных категорий',
+    itemSelectText: '',
+    allowHTML: false,
+  })
+
+  async function loadCategories(type) {
+    const res = await fetch(API + '/categories/')
+    const all = await res.json()
+
+    // Собираем группы: родитель → дочерние
+    const parents = all.filter(c => c.type === type && c.parent_id === null)
+
+    // Строим массив в формате который понимает Choices.js с группами
+    const grouped = []
+
+    parents.forEach(parent => {
+      const children = all.filter(c => c.parent_id === parent.id)
+
+      if (children.length > 0) {
+        // Расходы: добавляем группу с дочерними
+        grouped.push({
+          label: parent.name,
+          id: parent.id,
+          choices: children.map(c => ({
+            label: c.name,
+            value: String(c.id),
+          }))
+        })
+      } else {
+        // Доходы: без группы, просто пункт
+        grouped.push({
+          label: '',
+          id: parent.id,
+          choices: [{
+            label: parent.name,
+            value: String(parent.id),
+          }]
+        })
+      }
+    })
+
+    choicesCategory.clearStore()
+    choicesCategory.setChoices(
+      grouped,
+      'value',
+      'label',
+      true
+    )
+  }
+
+  document.getElementById('type-select').addEventListener('change', (e) => {
+    loadCategories(e.target.value)
+  })
+
+  loadCategories('income')
+
+  // Счета в select формы транзакции
+  async function loadAccountsSelect() {
+    const res = await fetch(API + '/accounts/')
+    const data = await res.json()
+    const select = document.getElementById('account-select')
+    select.innerHTML = '<option value="">— выберите —</option>'
+    data.forEach(a => {
+      const option = document.createElement('option')
+      option.value = a.id
+      option.textContent = a.name + ' (' + a.balance + ' ₽)'
+      select.appendChild(option)
+    })
+  }
+
+  loadAccountsSelect()
+
+  // Список счетов на вкладке Счета
+  async function loadAccountsList() {
+    const res = await fetch(API + '/accounts/')
+    const data = await res.json()
+    const list = document.getElementById('accounts-list')
+    list.innerHTML = ''
+    if (data.length === 0) {
+      list.innerHTML = '<p style="color:#888; font-size:14px;">Счетов пока нет</p>'
+      return
+    }
+    data.forEach(a => {
+      const item = document.createElement('div')
+      item.className = 'account-item'
+      item.innerHTML = `<span class="account-name">${a.name}</span><span class="account-balance">${a.balance} ₽</span>`
+      list.appendChild(item)
+    })
+  }
+
+  // AG Grid
+  const columnDefs = [
+    { field: 'id',          headerName: 'ID',       width: 70 },
+    { field: 'date',        headerName: 'Дата',     width: 120 },
+    { field: 'type',        headerName: 'Тип',      width: 110 },
+    { field: 'amount',      headerName: 'Сумма',    width: 120 },
+    { field: 'description', headerName: 'Описание', flex: 1 },
+  ]
+
+  const gridOptions = {
+    columnDefs: columnDefs,
+    rowData: [],
+    defaultColDef: { sortable: true, filter: true, resizable: true },
+  }
+
+  const grid = agGrid.createGrid(document.getElementById('myGrid'), gridOptions)
+
+  async function loadTransactions() {
+    const res = await fetch(API + '/transactions/')
+    const data = await res.json()
+    grid.setGridOption('rowData', data)
+  }
+
+  loadTransactions()
+
+  // Форма транзакции
+  document.getElementById('transaction-form').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const fd = new FormData(e.target)
+    const payload = {
+      type:        fd.get('type'),
+      amount:      parseFloat(fd.get('amount')),
+      date:        fd.get('date'),
+      description: fd.get('description') || null,
+      account_id:  parseInt(fd.get('account_id')),
+      category_id: fd.get('category_id') ? parseInt(fd.get('category_id')) : null,
+      periodicity: 'one_time',
+    }
+    const res = await fetch(API + '/transactions/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const msg = document.getElementById('form-message')
+    if (res.ok) {
+      msg.style.color = '#16a34a'
+      msg.textContent = 'Транзакция сохранена!'
+      e.target.reset()
+      loadCategories('income')
+      loadTransactions()
+      loadAccountsSelect()
+    } else {
+      msg.style.color = '#dc2626'
+      msg.textContent = 'Ошибка при сохранении'
+    }
+  })
+
+  // Форма счёта
+  document.getElementById('account-form').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const fd = new FormData(e.target)
+    const payload = {
+      name:    fd.get('name'),
+      balance: parseFloat(fd.get('balance')),
+    }
+    const res = await fetch(API + '/accounts/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const msg = document.getElementById('account-message')
+    if (res.ok) {
+      msg.style.color = '#16a34a'
+      msg.textContent = 'Счёт создан!'
+      e.target.reset()
+      loadAccountsList()
+      loadAccountsSelect()
+    } else {
+      msg.style.color = '#dc2626'
+      msg.textContent = 'Ошибка при создании счёта'
+    }
+  })
+
+  // Аналитика
+  async function loadAnalytics() {
+    const year  = document.getElementById('year').value
+    const month = document.getElementById('month').value
+    const res   = await fetch(`${API}/analytics/summary?year=${year}&month=${month}`)
+    const data  = await res.json()
+    document.getElementById('val-income').textContent  = data.income.toFixed(2)  + ' ₽'
+    document.getElementById('val-expense').textContent = data.expense.toFixed(2) + ' ₽'
+    document.getElementById('val-balance').textContent = data.balance.toFixed(2) + ' ₽'
+  }
+
+  // Загружаем список счетов при открытии вкладки Счета
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      if (tab.textContent === 'Счета') loadAccountsList()
+    })
+  })
+</script>
+
+</body>
+</html>
