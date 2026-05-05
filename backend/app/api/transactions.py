@@ -9,12 +9,12 @@ from app.services.transaction_service import TransactionService
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 @router.get("/", response_model=list[TransactionOut])
-def list_transactions(self, month: Optional[int] = Query(None, ge=1, le=12)
+def list_transactions(month: Optional[int] = Query(None, ge=1, le=12)
                       , year: Optional[int] = Query(None, ge=2000),
                       account_id: Optional[int]=None, db: Session = Depends(get_db)):
     return TransactionService(db=db).get_all(month=month, year=year, account_id=account_id) # отдаем на сервис
 
-@router.post("/", response_model=list[TransactionOut])
+@router.post("/", response_model=TransactionOut)
 def create_transaction(payload: TransactionCreate, db: Session = Depends(get_db)): # db: Session = Depends(get_db) - перед вызовом функции, вызови get_db, возьми что она вернёт и подставь в переменную db
     return TransactionService(db=db).create(payload=payload)
 
