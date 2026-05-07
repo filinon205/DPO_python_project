@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.transaction import Transaction, TransactionType # вызываем данные по модели и типы
 from app.schemas.transaction import TransactionCreate, TransactionUpdate # вызываем класс транзакции pydentic
@@ -12,7 +12,7 @@ class TransactionService:
 
     def get_all(self, month: int | None = None, year: int | None = None, account_id: int | None = None):
         """select по month, year, account_id"""
-        query = self._db.query(Transaction) # как select но еще не сделан запрос на уровень БД
+        query = self._db.query(Transaction).options(joinedload(Transaction.category), joinedload(Transaction.account), joinedload(Transaction.to_account)) # как select но еще не сделан запрос на уровень БД
         if account_id:
             query = query.filter(Transaction.account_id == account_id)
         if year and month:

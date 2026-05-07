@@ -22,7 +22,7 @@
 
     form { display: flex; flex-direction: column; gap: 12px; max-width: 480px; }
     label { font-size: 14px; color: #555; }
-    input, select { padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; width: 100%; margin-top: 4px; }
+    input, select { padding: 8px 12px; border: 1px solid #ccc; bordаокer-radius: 6px; font-size: 14px; width: 100%; margin-top: 4px; }
     button { padding: 10px 20px; background: #4f46e5; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
     button:hover { background: #4338ca; }
 
@@ -39,6 +39,14 @@
     .account-name { font-weight: 500; }
     .account-balance { color: #2563eb; font-weight: 600; }
     h3 { margin-bottom: 16px; font-size: 16px; font-weight: 500; }
+
+    .filters { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; }
+    .filter-group { display: flex; flex-direction: column; gap: 6px; }
+    .filter-group label { font-size: 12px; color: #888; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+    .filter-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tag { padding: 5px 12px; border-radius: 20px; border: 1px solid #ddd; background: #fff; font-size: 13px; cursor: pointer; color: #555; transition: all .15s; }
+    .tag.active { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+    .filter-search { padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; width: 200px; }
 
     .choices__group .choices__heading {
       font-size: 11px;
@@ -63,6 +71,21 @@
 <div class="content">
 
   <div id="tab-transactions" class="panel active">
+    <div class="filters">
+      <div class="filter-group">
+        <label>Тип</label>
+        <div class="filter-tags" id="type-filters">
+          <div class="tag active" data-value="income">Доход</div>
+          <div class="tag active" data-value="expense">Расход</div>
+          <div class="tag active" data-value="transfer">Перевод</div>
+          <div class="tag active" data-value="debt">Долг</div>
+        </div>
+      </div>
+      <div class="filter-group">
+        <label>Категория</label>
+        <input class="filter-search" id="category-filter" placeholder="Поиск по категории...">
+      </div>
+    </div>
     <div id="myGrid" class="ag-theme-alpine"></div>
   </div>
 
@@ -83,6 +106,11 @@
       </label>
       <label>Счёт
         <select name="account_id" id="account-select">
+          <option value="">— выберите —</option>
+        </select>
+      </label>
+      <label id="to-account-label" style="display:none;">Счёт получатель
+        <select name="to_account_id" id="to-account-select">
           <option value="">— выберите —</option>
         </select>
       </label>
@@ -137,6 +165,8 @@
 
 <script>
   const API = 'http://localhost:8000'
+
+  const fmt = n => Math.round(n).toLocaleString('ru-RU') + ' ₽'
 
   function switchTab(name, clickedTab) {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'))
@@ -202,6 +232,9 @@
 
   document.getElementById('type-select').addEventListener('change', (e) => {
     loadCategories(e.target.value)
+    const isTransfer = e.target.value === 'transfer'
+    document.getElementById('to-account-label').style.display = isTransfer ? '' : 'none'
+    document.getElementById('to-account-select').required = isTransfer
   })
 
   loadCategories('income')
@@ -210,14 +243,17 @@
   async function loadAccountsSelect() {
     const res = await fetch(API + '/accounts/')
     const data = await res.json()
-    const select = document.getElementById('account-select')
-    select.innerHTML = '<option value="">— выберите —</option>'
-    data.forEach(a => {
-      const option = document.createElement('option')
-      option.value = a.id
-      option.textContent = a.name + ' (' + a.balance + ' ₽)'
-      select.appendChild(option)
-    })
+    const makeOptions = select => {
+      select.innerHTML = '<option value="">— выберите —</option>'
+      data.forEach(a => {
+        const option = document.createElement('option')
+        option.value = a.id
+        option.textContent = a.name + ' (' + fmt(a.balance) + ')'
+        select.appendChild(option)
+      })
+    }
+    makeOptions(document.getElementById('account-select'))
+    makeOptions(document.getElementById('to-account-select'))
   }
 
   loadAccountsSelect()
@@ -235,24 +271,56 @@
     data.forEach(a => {
       const item = document.createElement('div')
       item.className = 'account-item'
-      item.innerHTML = `<span class="account-name">${a.name}</span><span class="account-balance">${a.balance} ₽</span>`
+      item.innerHTML = `<span class="account-name">${a.name}</span><span class="account-balance">${fmt(a.balance)}</span>`
       list.appendChild(item)
     })
   }
 
+  // Внешние фильтры
+  let activeTypes = new Set(['income', 'expense', 'transfer', 'debt'])
+  let categorySearch = ''
+
+  document.querySelectorAll('#type-filters .tag').forEach(tag => {
+    tag.addEventListener('click', () => {
+      const val = tag.dataset.value
+      if (activeTypes.has(val)) {
+        activeTypes.delete(val)
+        tag.classList.remove('active')
+      } else {
+        activeTypes.add(val)
+        tag.classList.add('active')
+      }
+      grid.onFilterChanged()
+    })
+  })
+
+  document.getElementById('category-filter').addEventListener('input', e => {
+    categorySearch = e.target.value.toLowerCase()
+    grid.onFilterChanged()
+  })
+
   // AG Grid
   const columnDefs = [
-    { field: 'id',          headerName: 'ID',       width: 70 },
-    { field: 'date',        headerName: 'Дата',     width: 120 },
-    { field: 'type',        headerName: 'Тип',      width: 110 },
-    { field: 'amount',      headerName: 'Сумма',    width: 120 },
-    { field: 'description', headerName: 'Описание', flex: 1 },
+    { field: 'id',            headerName: 'ID',        width: 70 },
+    { field: 'date',          headerName: 'Дата',      width: 120, filter: 'agDateColumnFilter' },
+    { field: 'type',          headerName: 'Тип',       width: 110 },
+    { field: 'amount',        headerName: 'Сумма',     width: 140, valueFormatter: p => p.value != null ? fmt(p.value) : '' },
+    { field: 'account_name',    headerName: 'Счёт источник',    width: 160 },
+    { field: 'to_account_name', headerName: 'Счёт получатель', width: 160 },
+    { field: 'category_name', headerName: 'Категория', width: 200 },
+    { field: 'description',   headerName: 'Описание',  flex: 1 },
   ]
 
   const gridOptions = {
     columnDefs: columnDefs,
     rowData: [],
     defaultColDef: { sortable: true, filter: true, resizable: true },
+    isExternalFilterPresent: () => true,
+    doesExternalFilterPass: row => {
+      const typeOk = activeTypes.has(row.data.type)
+      const catOk  = !categorySearch || (row.data.category_name || '').toLowerCase().includes(categorySearch)
+      return typeOk && catOk
+    },
   }
 
   const grid = agGrid.createGrid(document.getElementById('myGrid'), gridOptions)
@@ -274,9 +342,10 @@
       amount:      parseFloat(fd.get('amount')),
       date:        fd.get('date'),
       description: fd.get('description') || null,
-      account_id:  parseInt(fd.get('account_id')),
-      category_id: fd.get('category_id') ? parseInt(fd.get('category_id')) : null,
-      periodicity: 'one_time',
+      account_id:    parseInt(fd.get('account_id')),
+      to_account_id: fd.get('to_account_id') ? parseInt(fd.get('to_account_id')) : null,
+      category_id:   fd.get('category_id') ? parseInt(fd.get('category_id')) : null,
+      periodicity:   'one_time',
     }
     const res = await fetch(API + '/transactions/', {
       method: 'POST',
@@ -329,9 +398,9 @@
     const month = document.getElementById('month').value
     const res   = await fetch(`${API}/analytics/summary?year=${year}&month=${month}`)
     const data  = await res.json()
-    document.getElementById('val-income').textContent  = data.income.toFixed(2)  + ' ₽'
-    document.getElementById('val-expense').textContent = data.expense.toFixed(2) + ' ₽'
-    document.getElementById('val-balance').textContent = data.balance.toFixed(2) + ' ₽'
+    document.getElementById('val-income').textContent  = fmt(data.income)
+    document.getElementById('val-expense').textContent = fmt(data.expense)
+    document.getElementById('val-balance').textContent = fmt(data.balance)
   }
 
   // Загружаем список счетов при открытии вкладки Счета
