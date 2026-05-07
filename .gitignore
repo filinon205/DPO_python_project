@@ -2,3 +2,6 @@
 .idea
 .venv
 *.bkp
+__pycache__/
+*.pyc
+budget.db
