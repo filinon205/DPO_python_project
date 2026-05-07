@@ -31,4 +31,7 @@ class TransactionOut(TransactionBase):
     """то что отдаём пользователю (с id), наследуем из Base и добавляем id,
     его генерирует БД, поэтому при создании его нет, а при ответе он уже есть."""
     id: int
+    category_name: str | None = None
+    account_name: str | None = None
+    to_account_name: str | None = None
     model_config = ConfigDict(from_attributes=True) # Эта настройка говорит: "умей читать атрибуты объекта как поля схемы"
