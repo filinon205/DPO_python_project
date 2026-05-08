@@ -1,6 +1,6 @@
 import datetime as dt
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from app.models.transaction import TransactionType, Periodicity
 
 class TransactionBase(BaseModel):
@@ -14,9 +14,24 @@ class TransactionBase(BaseModel):
     category_id: int|None = None
     to_account_id: int|None = None
 
+    @field_validator('amount')
+    @classmethod
+    def amount_must_be_positive(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError('Сумма должна быть больше нуля')
+        return v
+
 class TransactionCreate(TransactionBase):
     """то что принимаем от пользователя (без id)"""
-    pass
+
+    @model_validator(mode='after')
+    def check_transfer_fields(self) -> 'TransactionCreate':
+        if self.type == TransactionType.TRANSFER:
+            if not self.to_account_id:
+                raise ValueError('Для перевода нужно указать счёт получателя')
+            if self.to_account_id == self.account_id:
+                raise ValueError('Счёт источник и получатель должны быть разными')
+        return self
 
 class TransactionUpdate(BaseModel):
     """TransactionUpdate не наследуется от Base. Все поля с | None,
