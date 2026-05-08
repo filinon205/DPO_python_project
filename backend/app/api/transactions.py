@@ -5,6 +5,7 @@ from typing import Optional
 from app.database import get_db
 from app.schemas.transaction import TransactionCreate, TransactionOut # Pydantic-схемы. TransactionCreate: что мы ожидаем получить от клиента. TransactionOut: что мы отдаём обратно.
 from app.services.transaction_service import TransactionService
+from app.services.account_service import AccountService
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -16,6 +17,11 @@ def list_transactions(month: Optional[int] = Query(None, ge=1, le=12)
 
 @router.post("/", response_model=TransactionOut)
 def create_transaction(payload: TransactionCreate, db: Session = Depends(get_db)): # db: Session = Depends(get_db) - перед вызовом функции, вызови get_db, возьми что она вернёт и подставь в переменную db
+    acc_svc = AccountService(db=db)
+    if not acc_svc.get_by_id(payload.account_id):
+        raise HTTPException(status_code=404, detail="Счёт не найден")
+    if payload.to_account_id and not acc_svc.get_by_id(payload.to_account_id):
+        raise HTTPException(status_code=404, detail="Счёт получателя не найден")
     return TransactionService(db=db).create(payload=payload)
 
 @router.get("/{transaction_id}", response_model=TransactionOut)
