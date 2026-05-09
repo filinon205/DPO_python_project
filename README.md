@@ -14,14 +14,16 @@
 ```
 backend/
   app/
-    api/          - роутеры (accounts, transactions, categories, analytics)
+    api/          - роутеры (accounts, transactions, categories, analytics, budgets)
     models/       - ORM модели SQLAlchemy
     schemas/      - Pydantic схемы
     services/     - бизнес логика
     database.py   - подключение к БД
     main.py       - точка входа, CORS, seed категорий
 frontend/
-  index.html      - весь фронтенд в одном файле
+  index.html      - разметка
+  style.css       - стили
+  app.js          - логика
 ```
 
 ## Как запустить
@@ -37,10 +39,9 @@ python -m venv .venv
 pip install -r backend/requirements.txt
 ```
 
-3. Запустить бэкенд:
+3. Запустить бэкенд (из корня проекта):
 ```bash
-cd backend
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+.venv\Scripts\uvicorn.exe app.main:app --reload --host 0.0.0.0 --port 8000 --app-dir backend
 ```
 
 При первом запуске автоматически создастся база данных и заполнятся категории.
@@ -63,4 +64,6 @@ API документация доступна по адресу http://localhost
 - При переводе указывается счёт источник и счёт получатель
 - Большой список категорий расходов и доходов, с поиском
 - Таблица транзакций с фильтрами по типу и категории
+- В таблице транзакций видны лимит и остаток бюджета по категории
 - Простая аналитика - доходы/расходы/баланс за выбранный месяц
+- Бюджеты по категориям - задаёшь месячный лимит на категорию расходов, приложение показывает сколько потрачено, остаток и предупреждает при превышении
