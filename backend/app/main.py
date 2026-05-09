@@ -3,8 +3,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine, SessionLocal
-from app.api import accounts, categories, transactions, analytics
+from app.api import accounts, categories, transactions, analytics, budgets
 from app.models.category import Category, CategoryType
+from app.models.budget import Budget  # noqa: F401 — нужен чтобы SQLAlchemy создал таблицу
 
 Base.metadata.create_all(bind=engine)
 
@@ -131,6 +132,7 @@ app.include_router(accounts.router)
 app.include_router(categories.router)
 app.include_router(transactions.router)
 app.include_router(analytics.router)
+app.include_router(budgets.router)
 
 @app.get('/health')
 def health() -> dict:
