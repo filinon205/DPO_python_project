@@ -33,7 +33,7 @@ class Transaction(Base):
     to_account_id:Mapped[int|None] = mapped_column(ForeignKey("accounts.id"), nullable=True)
 
     account = relationship("Account", foreign_keys=[account_id], back_populates="transactions")
-    to_account = relationship("Account", foreign_keys=[to_account_id])
+    to_account = relationship("Account", foreign_keys=[to_account_id], overlaps="incoming_transfers")
     category = relationship("Category", foreign_keys=[category_id], back_populates="transactions")
 
     @property
