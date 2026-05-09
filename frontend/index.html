@@ -15,6 +15,7 @@
   <div class="tab" onclick="switchTab('form', this)">Добавить</div>
   <div class="tab" onclick="switchTab('accounts', this)">Счета</div>
   <div class="tab" onclick="switchTab('analytics', this)">Аналитика</div>
+  <div class="tab" onclick="switchTab('budgets', this)">Бюджеты</div>
 </div>
 
 <div class="content">
@@ -108,6 +109,40 @@
       <div class="card"><div class="label">Расходы</div><div class="value expense" id="val-expense">—</div></div>
       <div class="card"><div class="label">Баланс</div><div class="value balance" id="val-balance">—</div></div>
     </div>
+  </div>
+
+  <div id="tab-budgets" class="panel">
+    <div style="display:flex; gap:12px; margin-bottom:20px; align-items:flex-end;">
+      <label style="font-size:14px;">Месяц
+        <input type="number" id="budget-month" value="5" min="1" max="12" style="width:70px; padding:6px; border:1px solid #ccc; border-radius:6px; margin-left:6px;">
+      </label>
+      <label style="font-size:14px;">Год
+        <input type="number" id="budget-year" value="2026" style="width:90px; padding:6px; border:1px solid #ccc; border-radius:6px; margin-left:6px;">
+      </label>
+      <button onclick="loadBudgets()">Показать</button>
+    </div>
+
+    <div id="budgets-list" style="display:flex; flex-direction:column; gap:10px; max-width:560px; margin-bottom:32px;"></div>
+
+    <h3>Добавить бюджет</h3>
+    <form id="budget-form" style="max-width:480px; display:flex; flex-direction:column; gap:12px;">
+      <label>Категория расходов
+        <select name="category_id" id="budget-category-select" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; margin-top:4px;">
+          <option value="">— выберите —</option>
+        </select>
+      </label>
+      <label>Месяц
+        <input type="number" name="month" min="1" max="12" value="5" required>
+      </label>
+      <label>Год
+        <input type="number" name="year" value="2026" required>
+      </label>
+      <label>Лимит (₽)
+        <input type="number" name="limit" placeholder="5000" required>
+      </label>
+      <button type="submit">Создать</button>
+    </form>
+    <p id="budget-message" style="margin-top:12px;"></p>
   </div>
 
 </div>

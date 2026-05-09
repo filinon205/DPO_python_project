@@ -9,7 +9,7 @@ function switchTab(name, clickedTab) {
   clickedTab.classList.add('active')
 }
 
-// Инициализируем Choices на select категории
+// Инициализируем Choices на select категории транзакций
 const choicesCategory = new Choices('#category-select', {
   searchEnabled: true,
   searchPlaceholderValue: 'Поиск категории...',
@@ -73,6 +73,16 @@ document.getElementById('type-select').addEventListener('change', (e) => {
 
 loadCategories('income')
 
+// Инициализируем Choices на select категории бюджетов
+const choicesBudgetCategory = new Choices('#budget-category-select', {
+  searchEnabled: true,
+  searchPlaceholderValue: 'Поиск категории...',
+  noResultsText: 'Ничего не найдено',
+  noChoicesText: 'Нет доступных категорий',
+  itemSelectText: '',
+  allowHTML: false,
+})
+
 // Счета в select формы транзакции
 async function loadAccountsSelect() {
   const res = await fetch(API + '/accounts/')
@@ -91,6 +101,7 @@ async function loadAccountsSelect() {
 }
 
 loadAccountsSelect()
+loadBudgetCategories()
 
 // Список счетов на вкладке Счета
 async function loadAccountsList() {
@@ -107,6 +118,19 @@ async function loadAccountsList() {
     item.className = 'account-item'
     item.innerHTML = `<span class="account-name">${a.name}</span><span class="account-balance">${fmt(a.balance)}</span>`
     list.appendChild(item)
+  })
+}
+
+// Словарь бюджетов по category_id для таблицы транзакций
+let budgetMap = {}
+
+async function loadBudgetMap() {
+  const now = new Date()
+  const res = await fetch(`${API}/budgets/?month=${now.getMonth() + 1}&year=${now.getFullYear()}`)
+  const data = await res.json()
+  budgetMap = {}
+  data.forEach(b => {
+    budgetMap[b.category_id] = { limit: b.limit, remaining: b.remaining, exceeded: b.exceeded }
   })
 }
 
@@ -142,6 +166,28 @@ const columnDefs = [
   { field: 'account_name',    headerName: 'Счёт источник',   width: 160 },
   { field: 'to_account_name', headerName: 'Счёт получатель', width: 160 },
   { field: 'category_name',   headerName: 'Категория',       width: 200 },
+  {
+    headerName: 'Лимит',
+    width: 130,
+    valueGetter: p => {
+      const b = budgetMap[p.data.category_id]
+      return b ? b.limit : null
+    },
+    valueFormatter: p => p.value != null ? fmt(p.value) : '—',
+  },
+  {
+    headerName: 'Остаток',
+    width: 130,
+    valueGetter: p => {
+      const b = budgetMap[p.data.category_id]
+      return b ? b.remaining : null
+    },
+    valueFormatter: p => p.value != null ? fmt(p.value) : '—',
+    cellStyle: p => {
+      if (p.value == null) return null
+      return p.value < 0 ? { color: '#dc2626', fontWeight: '600' } : { color: '#16a34a' }
+    },
+  },
   { field: 'description',     headerName: 'Описание',        flex: 1 },
 ]
 
@@ -160,6 +206,7 @@ const gridOptions = {
 const grid = agGrid.createGrid(document.getElementById('myGrid'), gridOptions)
 
 async function loadTransactions() {
+  await loadBudgetMap()
   const res = await fetch(API + '/transactions/')
   const data = await res.json()
   grid.setGridOption('rowData', data)
@@ -241,5 +288,101 @@ async function loadAnalytics() {
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     if (tab.textContent === 'Счета') loadAccountsList()
+    if (tab.textContent === 'Бюджеты') {
+      loadBudgetCategories()
+      loadBudgets()
+    }
   })
+})
+
+// Категории расходов для формы бюджета
+async function loadBudgetCategories() {
+  const res = await fetch(API + '/categories/')
+  const all = await res.json()
+  const parents = all.filter(c => c.type === 'expense' && c.parent_id === null)
+  const grouped = parents.map(parent => ({
+    label: parent.name,
+    id: parent.id,
+    choices: all
+      .filter(c => c.parent_id === parent.id)
+      .map(c => ({ label: c.name, value: String(c.id) }))
+  })).filter(g => g.choices.length > 0)
+
+  choicesBudgetCategory.clearStore()
+  choicesBudgetCategory.setChoices(grouped, 'value', 'label', true)
+}
+
+// Загрузка и отрисовка бюджетов
+async function loadBudgets() {
+  const month = document.getElementById('budget-month').value
+  const year  = document.getElementById('budget-year').value
+  const res   = await fetch(`${API}/budgets/?month=${month}&year=${year}`)
+  const data  = await res.json()
+  const list  = document.getElementById('budgets-list')
+  list.innerHTML = ''
+  if (data.length === 0) {
+    list.innerHTML = '<p style="color:#888; font-size:14px;">Бюджетов за этот период нет</p>'
+    return
+  }
+  data.forEach(b => list.appendChild(renderBudgetCard(b)))
+}
+
+function renderBudgetCard(b) {
+  // Ширина прогресс-бара: не больше 100% даже если лимит превышен
+  const pct = Math.min(b.spent / b.limit * 100, 100).toFixed(1)
+  const card = document.createElement('div')
+  card.className = 'budget-card' + (b.exceeded ? ' exceeded' : '')
+  card.innerHTML = `
+    <div class="budget-header">
+      <span class="budget-name">${b.category_name ?? '—'}</span>
+      <span class="budget-limit">лимит: ${fmt(b.limit)}</span>
+    </div>
+    <div class="budget-bar-wrap">
+      <div class="budget-bar" style="width:${pct}%"></div>
+    </div>
+    <div class="budget-footer">
+      <span>
+        ${b.exceeded
+          ? `<span class="budget-warn">Превышен на ${fmt(Math.abs(b.remaining))}</span>`
+          : `<span class="budget-remaining">Остаток: ${fmt(b.remaining)}</span>`
+        }
+        &nbsp;·&nbsp; потрачено ${fmt(b.spent)} из ${fmt(b.limit)}
+      </span>
+      <button class="budget-delete" onclick="deleteBudget(${b.id})">удалить</button>
+    </div>
+  `
+  return card
+}
+
+async function deleteBudget(id) {
+  await fetch(`${API}/budgets/${id}`, { method: 'DELETE' })
+  loadBudgets()
+}
+
+// Форма создания бюджета
+document.getElementById('budget-form').addEventListener('submit', async (e) => {
+  e.preventDefault()
+  const fd = new FormData(e.target)
+  const payload = {
+    category_id: parseInt(choicesBudgetCategory.getValue(true)),
+    month:       parseInt(fd.get('month')),
+    year:        parseInt(fd.get('year')),
+    limit:       parseFloat(fd.get('limit')),
+  }
+  const res = await fetch(API + '/budgets/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const msg = document.getElementById('budget-message')
+  if (res.ok) {
+    msg.style.color = '#16a34a'
+    msg.textContent = 'Бюджет создан!'
+    e.target.reset()
+    loadBudgets()
+  } else {
+    const err = await res.json()
+    msg.style.color = '#dc2626'
+    msg.textContent = err.detail ?? 'Ошибка при создании'
+  }
 })
